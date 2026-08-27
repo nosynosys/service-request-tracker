@@ -9,3 +9,9 @@ A small business owner who needs to review and follow up on incoming service req
 
 ## Current status
 Class 1: sample data and app shell only. Database and external integrations will be added later.
+
+## User Stories
+
+- As a business owner, I want to see all service requests so I know what needs attention.
+- As a business owner, I want to add a new service request so I do not lose customer information.
+- As a business owner, I want to change a request’s status so I can track follow-ups.
