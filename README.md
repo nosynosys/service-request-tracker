@@ -30,3 +30,14 @@ By the end of Class 6, the app will let the business owner add, view, and track 
 | created_at | 2026-08-26T09:00Z |
 | customer_name | Jordan Smith |
 | phone | 555-123-4567 |
+
+## Architecture Map
+
+```mermaid
+flowchart LR
+    User[User / Browser] -->|Form input - current| Frontend[GitHub Pages frontend - current]
+    Frontend -.->|Request data - future| Backend[Backend / Serverless API - future]
+    External[CSV or API source - future] -.->|External data - future| Backend
+    Backend -.->|Structured service requests - future| Supabase[Supabase / Postgres - future]
+    Backend -.->|Raw request data - future| Mongo[MongoDB - future]
+```
