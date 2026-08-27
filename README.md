@@ -1,6 +1,3 @@
-# service-request-tracker
-Data Integration App Studio Class 1 project
-
 A small app that helps a service business track customer requests and decide what to follow up on next.
 
 ## Primary user
