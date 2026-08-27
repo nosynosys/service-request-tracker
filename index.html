@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Service Request Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -15,28 +16,23 @@
     header {
       background: #173b69;
       color: white;
-      padding: 48px 20px;
+      padding: 40px 20px;
       text-align: center;
     }
-    header p { max-width: 650px; margin: 12px auto 0; }
-    main {
-      max-width: 1000px;
-      margin: 0 auto;
-      padding: 28px 20px;
-    }
+    main { max-width: 1000px; margin: 0 auto; padding: 28px 20px; }
     h2 { color: #173b69; }
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
       gap: 16px;
     }
-    .card, form, .status-box {
+    .card, form, .status-box, .auth-box {
       background: white;
       border-radius: 10px;
       padding: 20px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      margin-bottom: 20px;
     }
-    .card h3 { margin-top: 0; }
     .tag {
       display: inline-block;
       background: #dbeafe;
@@ -46,11 +42,7 @@
       font-size: 14px;
       font-weight: bold;
     }
-    form {
-      display: grid;
-      gap: 12px;
-      margin-top: 18px;
-    }
+    form { display: grid; gap: 12px; }
     label { font-weight: bold; }
     input, select, button {
       padding: 10px;
@@ -58,25 +50,14 @@
       border-radius: 6px;
       font: inherit;
     }
-    button {
-      background: #2563eb;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
+    button { background: #2563eb; color: white; border: none; cursor: pointer; }
     button:hover { background: #1d4ed8; }
-    .status-buttons {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-    .status-buttons button { background: #64748b; }
+    .card-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    .card-actions button { background: #64748b; font-size: 13px; padding: 6px 10px; }
+    .card-actions button.delete { background: #dc2626; }
     #message { min-height: 24px; font-weight: bold; }
-    footer {
-      text-align: center;
-      padding: 24px;
-      color: #475569;
-    }
+    #auth-status { font-weight: bold; }
+    footer { text-align: center; padding: 24px; color: #475569; }
   </style>
 </head>
 <body>
@@ -86,103 +67,169 @@
   </header>
 
   <main>
-    <section>
-      <h2>Current Requests</h2>
-      <div class="grid" id="request-list"></div>
+    <section class="auth-box" id="auth-section">
+      <h2>Sign In</h2>
+      <p id="auth-status">Not signed in.</p>
+      <form id="signup-form">
+        <label for="email">Email</label>
+        <input id="email" type="email" required placeholder="you@example.com" />
+        <label for="password">Password</label>
+        <input id="password" type="password" required placeholder="At least 6 characters" />
+        <div style="display:flex; gap:10px;">
+          <button type="submit">Sign In</button>
+          <button type="button" id="signup-btn">Sign Up</button>
+          <button type="button" id="signout-btn">Sign Out</button>
+        </div>
+      </form>
     </section>
 
-    <section>
+    <section id="app-section" style="display:none;">
+      <h2>Current Requests</h2>
+      <div class="grid" id="request-list"></div>
+
       <h2>Add a Service Request</h2>
       <form id="request-form">
         <label for="customer">Customer name</label>
         <input id="customer" required placeholder="Jordan Smith" />
-
         <label for="title">Request title</label>
         <input id="title" required placeholder="Lawn mowing quote" />
-
         <label for="phone">Phone number</label>
         <input id="phone" required placeholder="555-123-4567" />
-
         <label for="status">Status</label>
         <select id="status">
           <option value="new">New</option>
           <option value="contacted">Contacted</option>
           <option value="scheduled">Scheduled</option>
         </select>
-
         <button type="submit">Add Request</button>
       </form>
-    </section>
 
-    <section>
-      <h2>Demo States</h2>
       <div class="status-box">
-        <div class="status-buttons">
-          <button onclick="showMessage('Loading requests...')">Loading</button>
-          <button onclick="showMessage('No requests found.')">Empty</button>
-          <button onclick="showMessage('Error: Requests could not load.')">Error</button>
-        </div>
-        <p id="message">Sample requests are currently shown.</p>
+        <p id="message"></p>
       </div>
     </section>
   </main>
 
-  <footer>Data Integration App Studio Capstone - Class 1</footer>
+  <footer>Data Integration App Studio Capstone - Class 2</footer>
 
   <script>
-    const requests = [
-      {
-        customer: "Jordan Smith",
-        title: "Lawn mowing quote",
-        phone: "555-123-4567",
-        status: "new"
-      },
-      {
-        customer: "Avery Lee",
-        title: "Fence repair estimate",
-        phone: "555-987-6543",
-        status: "contacted"
-      },
-      {
-        customer: "Morgan Davis",
-        title: "Spring cleanup",
-        phone: "555-555-0199",
-        status: "scheduled"
-      }
-    ];
+    const SUPABASE_URL = "https://uyxpovytvcmhcqxypclo.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_p3g3OYVkvz4ypMQaPLciYw_wKZOqXD9";
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
-    function renderRequests() {
+    const authSection = document.getElementById("auth-section");
+    const appSection = document.getElementById("app-section");
+    const authStatus = document.getElementById("auth-status");
+    const messageEl = document.getElementById("message");
+
+    function showMessage(msg) { messageEl.textContent = msg; }
+
+    async function checkSession() {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session) {
+        authStatus.textContent = `Signed in as ${session.user.email}`;
+        appSection.style.display = "block";
+        loadRequests();
+      } else {
+        authStatus.textContent = "Not signed in.";
+        appSection.style.display = "none";
+      }
+    }
+
+    document.getElementById("signup-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if (error) { showMessage("Sign in error: " + error.message); return; }
+      showMessage("Signed in.");
+      checkSession();
+    });
+
+    document.getElementById("signup-btn").addEventListener("click", async () => {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      const { error } = await supabaseClient.auth.signUp({ email, password });
+      if (error) { showMessage("Sign up error: " + error.message); return; }
+      showMessage("Account created. Check email if confirmation is required, then sign in.");
+    });
+
+    document.getElementById("signout-btn").addEventListener("click", async () => {
+      await supabaseClient.auth.signOut();
+      showMessage("Signed out.");
+      checkSession();
+    });
+
+    async function loadRequests() {
+      showMessage("Loading requests...");
+      const { data, error } = await supabaseClient
+        .from("service_requests")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) { showMessage("Error: " + error.message); return; }
+      if (!data || data.length === 0) { showMessage("No requests found."); }
+      else { showMessage(""); }
+      renderRequests(data || []);
+    }
+
+    function renderRequests(requests) {
       const list = document.getElementById("request-list");
-      list.innerHTML = requests.map(request => `
+      list.innerHTML = requests.map(r => `
         <article class="card">
-          <span class="tag">${request.status}</span>
-          <h3>${request.title}</h3>
-          <p><strong>Customer:</strong> ${request.customer}</p>
-          <p><strong>Phone:</strong> ${request.phone}</p>
+          <span class="tag">${r.status}</span>
+          <h3>${r.title}</h3>
+          <p><strong>Customer:</strong> ${r.customer_name}</p>
+          <p><strong>Phone:</strong> ${r.phone}</p>
+          <div class="card-actions">
+            <button onclick="updateStatus('${r.id}', 'new')">New</button>
+            <button onclick="updateStatus('${r.id}', 'contacted')">Contacted</button>
+            <button onclick="updateStatus('${r.id}', 'scheduled')">Scheduled</button>
+            <button class="delete" onclick="deleteRequest('${r.id}')">Delete</button>
+          </div>
         </article>
       `).join("");
     }
 
-    function showMessage(message) {
-      document.getElementById("message").textContent = message;
+    async function updateStatus(id, status) {
+      const { error } = await supabaseClient
+        .from("service_requests")
+        .update({ status })
+        .eq("id", id);
+      if (error) { showMessage("Error: " + error.message); return; }
+      loadRequests();
     }
 
-    document.getElementById("request-form").addEventListener("submit", event => {
-      event.preventDefault();
+    async function deleteRequest(id) {
+      const { error } = await supabaseClient
+        .from("service_requests")
+        .delete()
+        .eq("id", id);
+      if (error) { showMessage("Error: " + error.message); return; }
+      loadRequests();
+    }
 
-      requests.unshift({
-        customer: document.getElementById("customer").value,
+    document.getElementById("request-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session) { showMessage("You must be signed in."); return; }
+
+      const { error } = await supabaseClient.from("service_requests").insert({
+        customer_name: document.getElementById("customer").value,
         title: document.getElementById("title").value,
         phone: document.getElementById("phone").value,
-        status: document.getElementById("status").value
+        status: document.getElementById("status").value,
+        source: "form",
+        user_id: session.user.id
       });
 
-      renderRequests();
-      event.target.reset();
-      showMessage("New request added successfully.");
+      if (error) { showMessage("Error: " + error.message); return; }
+      e.target.reset();
+      showMessage("Request added.");
+      loadRequests();
     });
 
-    renderRequests();
+    checkSession();
   </script>
 </body>
 </html>
