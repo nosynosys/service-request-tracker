@@ -44,7 +44,7 @@
     }
     form { display: grid; gap: 12px; }
     label { font-weight: bold; }
-    input, select, button {
+    input, select, button, textarea {
       padding: 10px;
       border: 1px solid #cbd5e1;
       border-radius: 6px;
@@ -58,6 +58,35 @@
     #message { min-height: 24px; font-weight: bold; }
     #auth-status { font-weight: bold; }
     footer { text-align: center; padding: 24px; color: #475569; }
+
+    .notes-toggle {
+      background: #173b69;
+      font-size: 13px;
+      padding: 6px 10px;
+      margin-top: 10px;
+    }
+    .notes-panel {
+      margin-top: 14px;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 12px;
+      display: none;
+    }
+    .notes-panel.open { display: block; }
+    .note-item {
+      background: #f8fafc;
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    .note-item .note-meta {
+      font-size: 12px;
+      color: #64748b;
+      margin-top: 4px;
+    }
+    .notes-form { display: flex; gap: 8px; margin-top: 8px; }
+    .notes-form textarea { flex: 1; min-height: 40px; resize: vertical; }
+    .notes-status { font-size: 13px; color: #475569; min-height: 18px; margin-top: 6px; }
   </style>
 </head>
 <body>
@@ -110,12 +139,14 @@
     </section>
   </main>
 
-  <footer>Data Integration App Studio Capstone - Class 2</footer>
+  <footer>Data Integration App Studio Capstone - Class 3</footer>
 
   <script>
     const SUPABASE_URL = "https://uyxpovytvcmhcqxypclo.supabase.co";
     const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_p3g3OYVkvz4ypMQaPLciYw_wKZOqXD9";
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+    const BACKEND_URL = "https://service-request-tracker.vercel.app/api/activity-notes";
 
     const authSection = document.getElementById("auth-section");
     const appSection = document.getElementById("app-section");
@@ -187,6 +218,15 @@
             <button onclick="updateStatus('${r.id}', 'scheduled')">Scheduled</button>
             <button class="delete" onclick="deleteRequest('${r.id}')">Delete</button>
           </div>
+          <button class="notes-toggle" onclick="toggleNotes('${r.id}')">Activity Notes</button>
+          <div class="notes-panel" id="notes-panel-${r.id}">
+            <div id="notes-list-${r.id}"></div>
+            <div class="notes-form">
+              <textarea id="notes-input-${r.id}" placeholder="Add a note..."></textarea>
+              <button onclick="submitNote('${r.id}')">Add</button>
+            </div>
+            <p class="notes-status" id="notes-status-${r.id}"></p>
+          </div>
         </article>
       `).join("");
     }
@@ -228,6 +268,112 @@
       showMessage("Request added.");
       loadRequests();
     });
+
+    // --- Activity Notes (MongoDB-backed feature) ---
+
+    async function getAuthToken() {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      return session ? session.access_token : null;
+    }
+
+    async function toggleNotes(requestId) {
+      const panel = document.getElementById(`notes-panel-${requestId}`);
+      const isOpen = panel.classList.contains("open");
+      if (isOpen) {
+        panel.classList.remove("open");
+        return;
+      }
+      panel.classList.add("open");
+      await loadNotes(requestId);
+    }
+
+    async function loadNotes(requestId) {
+      const listEl = document.getElementById(`notes-list-${requestId}`);
+      const statusEl = document.getElementById(`notes-status-${requestId}`);
+      listEl.innerHTML = "";
+      statusEl.textContent = "Loading notes...";
+
+      const token = await getAuthToken();
+      if (!token) {
+        statusEl.textContent = "You must be signed in to view notes.";
+        return;
+      }
+
+      try {
+        const res = await fetch(`${BACKEND_URL}?app_record_id=${requestId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const result = await res.json();
+
+        if (!res.ok) {
+          statusEl.textContent = "Error: " + (result.error || "Could not load notes.");
+          return;
+        }
+
+        const notes = result.data || [];
+        if (notes.length === 0) {
+          statusEl.textContent = "No notes yet.";
+        } else {
+          statusEl.textContent = "";
+          listEl.innerHTML = notes.map(n => `
+            <div class="note-item">
+              <div>${escapeHtml(n.payload && n.payload.text ? n.payload.text : "")}</div>
+              <div class="note-meta">${new Date(n.received_at).toLocaleString()}</div>
+            </div>
+          `).join("");
+        }
+      } catch (err) {
+        statusEl.textContent = "Error: could not reach the server.";
+      }
+    }
+
+    async function submitNote(requestId) {
+      const input = document.getElementById(`notes-input-${requestId}`);
+      const statusEl = document.getElementById(`notes-status-${requestId}`);
+      const text = input.value.trim();
+
+      if (!text) {
+        statusEl.textContent = "Note cannot be empty.";
+        return;
+      }
+
+      const token = await getAuthToken();
+      if (!token) {
+        statusEl.textContent = "You must be signed in to add notes.";
+        return;
+      }
+
+      statusEl.textContent = "Saving note...";
+
+      try {
+        const res = await fetch(BACKEND_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ app_record_id: String(requestId), text })
+        });
+        const result = await res.json();
+
+        if (!res.ok) {
+          statusEl.textContent = "Error: " + (result.error || "Could not save note.");
+          return;
+        }
+
+        input.value = "";
+        statusEl.textContent = "Note added.";
+        loadNotes(requestId);
+      } catch (err) {
+        statusEl.textContent = "Error: could not reach the server.";
+      }
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str;
+      return div.innerHTML;
+    }
 
     checkSession();
   </script>
