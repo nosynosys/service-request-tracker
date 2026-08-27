@@ -1,1 +1,6 @@
-
+external_id,customer_name,title,phone,status
+ext-001,Dana Kim,Gutter cleaning,555-410-2201,new
+ext-002,Miguel Torres,AC repair estimate,555-310-9987,new
+ext-003,,Fence painting,555-220-1122,new
+ext-004,Priya Shah,Deck staining,555-777-0001,contacted
+ext-005,Miguel Torres,AC repair estimate,555-310-9987,new
