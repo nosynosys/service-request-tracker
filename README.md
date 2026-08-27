@@ -15,3 +15,7 @@ Class 1: sample data and app shell only. Database and external integrations will
 - As a business owner, I want to see all service requests so I know what needs attention.
 - As a business owner, I want to add a new service request so I do not lose customer information.
 - As a business owner, I want to change a request’s status so I can track follow-ups.
+
+## Success Measure
+
+By the end of Class 6, the app will let the business owner add, view, and track service requests in one place.
