@@ -19,3 +19,16 @@ Class 1: sample data and app shell only. Database and external integrations will
 ## Success Measure
 
 By the end of Class 6, the app will let the business owner add, view, and track service requests in one place.
+
+## Data Contract
+
+| Field | Example |
+|---|---|
+| id | req_001 |
+| user_id | user_42 |
+| title | Lawn mowing quote |
+| status | new |
+| source | form |
+| created_at | 2026-08-26T09:00Z |
+| customer_name | Jordan Smith |
+| phone | 555-123-4567 |
