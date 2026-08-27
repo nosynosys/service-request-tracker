@@ -60,3 +60,31 @@ The MongoDB connection string is stored only in Vercel's environment variables �
 - Valid GET request (signed in, real request id): 200 OK, returns notes
 - Missing Authorization header: 401 Unauthorized
 - Valid POST request: 201 Created, note saved and linked to request
+
+## Class 4 — Data Integration Pipeline
+
+### Source-to-Target Contract
+
+**Source:** `sample-requests.csv` (simulates a partner data feed)
+**Idempotency key:** `external_id` — uniquely identifies a source record; if seen again, it's treated as duplicate_or_unchanged.
+
+| source_field | target_column | type | required | transformation_rule |
+|---|---|---|---|---|
+| external_id | (used as idempotency key only, not stored in Supabase) | text | yes | none |
+| customer_name | customer_name | text | yes | trim whitespace |
+| title | title | text | yes | trim whitespace |
+| phone | phone | text | yes | none |
+| status | status | text | yes | must be one of: new, contacted, scheduled; default "new" if blank |
+
+### Validation Rules
+**Structural:** `external_id`, `customer_name`, `title`, and `phone` must all be present and non-empty.
+**Business rule:** `status` must be one of `new`, `contacted`, `scheduled`.
+
+### Rejection Criteria
+A record is **rejected** (permanent) if `customer_name`, `title`, or `phone` is missing/empty, or if `status` is not one of the allowed values.
+
+### State Outcomes
+- **accepted** — passed validation, new `external_id`, inserted into Supabase
+- **duplicate_or_unchanged** — `external_id` already processed, no new Supabase row
+- **rejected** — failed validation, specific rule recorded
+- (no retryable_failure case in this CSV lab since there's no network call during load — only relevant for a live API source)
