@@ -45,3 +45,18 @@ flowchart LR
 ## Live App
 
 https://nosynosys.github.io/service-request-tracker/
+
+## Class 3 — MongoDB Feature (Activity Notes)
+
+### Architecture Decision
+Service requests are canonical records owned by Supabase. Activity notes are a flexible, append-only log tied to each request, stored in MongoDB. Each note links back to its Supabase record via `app_record_id`.
+
+### Data Flow
+Browser → Vercel backend (`/api/activity-notes`) → verifies Supabase session → checks request ownership in Supabase → reads/writes MongoDB → returns only the requested user's data.
+
+The MongoDB connection string is stored only in Vercel's environment variables — never in the frontend or repository.
+
+### API Tests
+- Valid GET request (signed in, real request id): 200 OK, returns notes
+- Missing Authorization header: 401 Unauthorized
+- Valid POST request: 201 Created, note saved and linked to request
